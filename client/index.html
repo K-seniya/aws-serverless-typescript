@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://cdn.auth0.com/js/lock/11.14.1/lock.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="app.css" rel="stylesheet">
+</head>
+
+<body>
+  <div class="container">
+    <div class="">
+        <div id='logo'>
+          <img src="https://i.cloudup.com/StzWWrY34s.png" />
+        </div>
+        <h3>Get auth token </h3>
+        <h2>Welcome <span id="nick" class="nickname"></span></h2>
+        <div class='user-actions'>
+          <a id="btn-login" class="btn">
+            Log in
+          </a>
+          <button id="btn-logout" class="btn" style="display:none">
+            Logout
+          </button>
+        </div>
+        <div> Access Token:
+            <div id="accessToken"></div>
+        </div>
+
+        <div> Id Token:
+            <div id="idToken"></div>
+        </div>
+
+        <div> Profile:
+            <div id="profile"></div>
+        </div>
+
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
