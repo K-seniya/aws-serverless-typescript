@@ -1,0 +1,130 @@
+service: porsche-store-typescript
+
+custom:
+  tableName: 'products-porsche-typescript-${self:provider.stage}'
+#  for offline usage only ---- START
+  dynamodb:
+    start:
+      migrate: true
+#  for offline usage only ---- FINISH
+  secrets: ${file(secrets.json)}
+  apiGatewayCloudWatchSettings:
+    metricsEnabled: true
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  region: us-east-2
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["PorscheProductsTypescriptDynamoDBTable", "Arn" ] }
+  environment:
+    PRODUCTS_TABLE: ${self:custom.tableName}
+    JWT_SECRET: ${self:custom.secrets.JWT_SECRET}
+    AUTH0_CLIENT_ID: ${file(secrets.json):AUTH0_CLIENT_ID}
+    AUTH0_CLIENT_PUBLIC_KEY: ${file(public_key)}
+
+functions:
+  auth:
+    handler: src/auth/authHandler.auth
+    cors: true
+
+  contentfulEntry:
+    handler: src/contentful/contentfulHandler.getContentfulEntries
+    events:
+     - http:
+         path: getEntry/{id}
+         method: get
+         cors: true
+
+  contentfulProducts:
+    handler: src/contentful/contentfulHandler.getContentfulProducts
+    events:
+      - http:
+          path: getContentful
+          method: get
+          cors: true
+
+  createProduct:
+    handler: src/handler.createProduct
+    events:
+      - http:
+          path: /products
+          method: post
+          authorizer: auth
+          cors: true
+
+  getProduct:
+    handler: src/handler.getProduct
+    events:
+      - http:
+          path: products/{proxy+}
+          method: get
+          authorizer: auth
+          cors: true
+
+resources:
+  Resources:
+    PorscheProductsTypescriptDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: productId
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: productId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}
+    GatewayResponseDefault4XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+
+    # This response is needed for custom authorizer failures cors support ¯\_(ツ)_/¯
+#    GatewayResponse:
+#      Type: 'AWS::ApiGateway::GatewayResponse'
+#      Properties:
+#        ResponseParameters:
+#          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+#          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+#        ResponseType: EXPIRED_TOKEN
+#        RestApiId:
+#          Ref: 'ApiGatewayRestApi'
+#        StatusCode: '401'
+
+    AuthFailureGatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: UNAUTHORIZED
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
+
+plugins:
+  - serverless-dynamodb-local
+  - serverless-api-gateway-cloudwatch-settings
+  - serverless-webpack
+  - serverless-offline #serverless-offline needs to be last in the list
